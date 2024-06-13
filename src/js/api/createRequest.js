@@ -54,7 +54,15 @@ const createRequest = async (data) => {
     // }
 
     if (data.requestMethod === 'GET') {
-        const response = await fetch(localhost);  
+
+        let url = localhost;
+        url += `?method=loadMessages&offset=${data.offset}&limit=${data.limit}`;
+
+        const options = {
+            method: data.requestMethod,
+        };
+
+        const response = await fetch(url, options);
 
         if (response.ok) {
             const result = await response.json();

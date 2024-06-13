@@ -1,5 +1,5 @@
 import createRequest from './api/createRequest';
-import addFileContent from './api/addFileContent';
+import createFileRequest from './api/createFileRequest';
 
 export default class Bot {
     constructor() {
@@ -23,7 +23,9 @@ export default class Bot {
         this.audioRecordListener();
         this.videoRecordListener();
         this.deleteBtnListener();
+        this.allMessagesLoaded = false;
         this.loadMessages();
+        this.setupScrollListener();
     }
 
     addTextListener() {
@@ -59,35 +61,29 @@ export default class Bot {
 
     addFileListener() {
         this.uploadFile.addEventListener('click', (e) => {
-            this.uploadFileInput.dispatchEvent(new MouseEvent('click'));
-        })
-
+          this.uploadFileInput.dispatchEvent(new MouseEvent('click'));
+        });
+      
         this.dndFile();
-
+      
         this.uploadFileInput.addEventListener('change', (e) => {
-            const file = this.uploadFileInput.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = () => {
-                const fileBase64 = reader.result.split(',')[1];
-                const fileType = file.type.split('/')[0];
-                const data = {
-                    value: fileBase64, 
-                    fileType: fileType,
-                    method: 'createFileMessage',
-                    requestMethod: 'POST'
-                };
-
-                createRequest(data).then(res => {
-                    const fileResponse = res.responseMessage;
-                    this.addContent(fileResponse, fileType); 
-                });
-            };
-            reader.readAsDataURL(file);
-        })
-    }
-
+          const file = this.uploadFileInput.files[0];
+          if (!file) return;
+      
+          const fileType = file.type.split('/')[0];
+          const data = new FormData();
+          data.append('file', file);
+          data.append('fileType', fileType);
+          data.append('method', 'createFileMessage');
+          data.append('requestMethod', 'POST');
+      
+          createFileRequest(data).then(res => {
+            console.log(res.responseMessage);
+            const fileResponse = res.responseMessage;
+            this.addContent(fileResponse, fileType);
+          });
+        });
+      }
 
     dndFile() {
         this.containerContent.addEventListener('dragover', (e) => {
@@ -101,51 +97,58 @@ export default class Bot {
             const fileType = file.type.split('/')[0];
             if (!file) return;
 
-            const reader = new FileReader();
-            reader.onload = () => {
-                const fileBase64 = reader.result.split(',')[1]; 
-                const data = {
-                    value: fileBase64, 
-                    fileType: fileType,
-                    method: 'createFileMessage',
-                    requestMethod: 'POST'
-                };
-
-                createRequest(data).then(res => {
-                    const fileResponse = res.responseMessage;
-                    this.addContent(fileResponse, fileType); 
-                });
-            };
-
-            reader.readAsDataURL(file);
+      
+          const data = new FormData();
+          data.append('file', file);
+          data.append('fileType', fileType);
+          data.append('method', 'createFileMessage');
+          data.append('requestMethod', 'POST');
+      
+          createFileRequest(data).then(res => {
+            console.log(res.responseMessage);
+            const fileResponse = res.responseMessage;
+            this.addContent(fileResponse, fileType);
+          });
         })
     }
 
-    addContent(data, fileType) {
+    addContent(fileData, fileType, prepend = false) {
         let contentElement;
-
+      
+        const byteArray = new Uint8Array(fileData.value);
+        const blob = new Blob([byteArray], { type: fileData.fileType });
+        const file = new File([blob], fileData.filename, {
+          type: fileData.fileType,
+          lastModified: fileData.lastModified,
+        });
+      
         if (fileType === 'audio') {
-            contentElement = document.createElement('audio');
-            contentElement.controls = true;
+          contentElement = document.createElement('audio');
+          contentElement.controls = true;
+          contentElement.src = URL.createObjectURL(file);
         } else if (fileType === 'video') {
-            contentElement = document.createElement('video');
-            contentElement.controls = true;
+          contentElement = document.createElement('video');
+          contentElement.controls = true;
+          contentElement.src = URL.createObjectURL(file);
         } else {
-            contentElement = document.createElement('img');
+          contentElement = document.createElement('img');
+          contentElement.src = URL.createObjectURL(file);
         }
-
+      
         contentElement.className = 'content-' + fileType;
-        contentElement.src = 'data:' + fileType + ';base64,' + data;
-
+      
         const contentContainer = document.createElement('div');
         contentContainer.className = 'content-' + 'file' + 'Container';
         contentContainer.append(contentElement);
+      
+        if (prepend) {
+            this.containerContent.prepend(contentContainer);
+        } else {
+            this.containerContent.append(contentContainer);
+        }
+      }
 
-        this.containerContent.append(contentContainer);
-    }
-
-
-    addTextMessage(message) {
+    addTextMessage(message, prepend = false) {
         if (message === '') {
             return;
         }
@@ -171,7 +174,11 @@ export default class Bot {
             }
         });
 
-        this.containerContent.append(messageBox);
+        if (prepend) {
+            this.containerContent.prepend(messageBox);
+        } else {
+            this.containerContent.append(messageBox);
+        }
     }
 
     async navigator() {
@@ -237,20 +244,18 @@ export default class Bot {
                         mediaRecorder.addEventListener('stop', () => {
                             if (audioChunks.length > 0) {
                                 const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                                const audioUrl = URL.createObjectURL(audioBlob);
+                                const audioFile = new File([audioBlob], 'recorded_audio.wav', { type: 'audio/wav' });
     
-                                const data = {
-                                    value: audioUrl,
-                                    fileType: 'audio',
-                                    method: 'createFileMessage',
-                                    requestMethod: 'POST'
-                                };
+                                const data = new FormData();
+                                data.append('file', audioFile);
+                                data.append('fileType', 'audio');
+                                data.append('method', 'createFileMessage');
+                                data.append('requestMethod', 'POST');
     
-                                createRequest(data).then(res => {
+                                createFileRequest(data).then(res => {
                                     const fileResponse = res.responseMessage;
-                                    const contentContainer = addFileContent(fileResponse, 'audio');
-                                    this.containerContent.append(contentContainer);
-                                });    
+                                    this.addContent(fileResponse, 'audio');
+                                });
                                 mediaStream.getTracks().forEach(track => track.stop());
                             }
     
@@ -283,73 +288,72 @@ export default class Bot {
             }
         });
     }
-
+    
     videoRecordListener() {
-            let mediaRecorder;
-            let videoChunks = [];
-            let mediaStream; 
-        
-            const startRecording = () => {
-                if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-                    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-                        .then(stream => {
-                            mediaStream = stream; 
-                            mediaRecorder = new MediaRecorder(stream);
-        
-                            mediaRecorder.addEventListener('dataavailable', event => {
-                                videoChunks.push(event.data);
-                            });
-        
-                            mediaRecorder.addEventListener('stop', () => {
-                                if (videoChunks.length > 0) {
-                                    const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
-                                    const videoUrl = URL.createObjectURL(videoBlob);
-        
-                                    const data = {
-                                        value: videoUrl,
-                                        fileType: 'video',
-                                        method: 'createFileMessage',
-                                        requestMethod: 'POST'
-                                    };
-        
-                                    createRequest(data).then(res => {
-                                        const fileResponse = res.responseMessage;
-                                        console.log(fileResponse);
-                                        const contentContainer = addFileContent(fileResponse, 'video');
-                                        this.containerContent.append(contentContainer);
-                                    });
-                                    mediaStream.getTracks().forEach(track => track.stop());
-                                }
-        
-                                videoChunks = [];
-                            });
-        
-                            mediaRecorder.start();
-                            this.recordVideo.classList.add('record-active');
-                        })
-                        .catch(error => {
-                            console.error('Error accessing media devices.', error);
+        let mediaRecorder;
+        let videoChunks = [];
+        let mediaStream; 
+    
+        const startRecording = () => {
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                    .then(stream => {
+                        mediaStream = stream; 
+                        mediaRecorder = new MediaRecorder(stream);
+    
+                        mediaRecorder.addEventListener('dataavailable', event => {
+                            videoChunks.push(event.data);
                         });
-                } else if (mediaRecorder.state === 'paused') {
-                    mediaRecorder.resume();
-                }
-            };
-        
-            const stopRecording = () => {
-                if (mediaRecorder && mediaRecorder.state === 'recording') {
-                    mediaRecorder.stop();
-                    this.recordVideo.classList.remove('record-active');
-                }
-            };
-        
-            this.recordVideo.addEventListener('click', () => {
-                if (this.recordVideo.classList.contains('record-active')) {
-                    stopRecording();
-                } else {
-                    startRecording();
-                }
-            });
+    
+                        mediaRecorder.addEventListener('stop', () => {
+                            if (videoChunks.length > 0) {
+                                const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
+                                const videoFile = new File([videoBlob], 'recorded_video.webm', { type: 'video/webm' });
+    
+                                const data = new FormData();
+                                data.append('file', videoFile);
+                                data.append('fileType', 'video');
+                                data.append('method', 'createFileMessage');
+                                data.append('requestMethod', 'POST');
+    
+                                createFileRequest(data).then(res => {
+                                    const fileResponse = res.responseMessage;
+                                    console.log(fileResponse);
+                                    this.addContent(fileResponse, 'video');
+                                });
+                                mediaStream.getTracks().forEach(track => track.stop());
+                            }
+    
+                            videoChunks = [];
+                        });
+    
+                        mediaRecorder.start();
+                        this.recordVideo.classList.add('record-active');
+                    })
+                    .catch(error => {
+                        console.error('Error accessing media devices.', error);
+                    });
+            } else if (mediaRecorder.state === 'paused') {
+                mediaRecorder.resume();
+            }
+        };
+    
+        const stopRecording = () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                this.recordVideo.classList.remove('record-active');
+            }
+        };
+    
+        this.recordVideo.addEventListener('click', () => {
+            if (this.recordVideo.classList.contains('record-active')) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        });
     }
+    
 
     deleteBtnListener() {
         this.deleteBtn.addEventListener('click', () => {
@@ -368,29 +372,44 @@ export default class Bot {
         })
     }
 
-    loadMessages() {
+    loadMessages(offset = 0, limit = 10) {
         const data = {
-            requestMethod: 'GET'
+            requestMethod: 'GET',
+            offset: offset,
+            limit: limit
         };
-        
+    
         createRequest(data).then(res => {
             if (res.length > 0) {
                 res.forEach(element => {
                     if (element.type === 'text') {
-                        this.addTextMessage(element.value);
+                        this.addTextMessage(element.value, true);
                     }
-
-                    if (element.type === 'audio' || element.type === 'video' || element.type === 'image') {
-                        this.addContent(element.value, element.type);
+                    if (element.fileType === 'audio' || element.fileType === 'video' || element.fileType === 'image') {
+                        this.addContent(element, element.fileType, true);
                     }
-
                     if (element.type === 'coords') {
                         const geolocationData = document.createElement('div');
                         geolocationData.textContent = `[${element.latitude}, ${element.longitude}]`;
                         geolocationData.className = 'content-message';
-                        this.containerContent.append(geolocationData);
+                        this.containerContent.prepend(geolocationData);
                     }
-                })
+                });
+    
+                if (res.length < limit) {
+                    this.allMessagesLoaded = true;
+                }
+            } else {
+                this.allMessagesLoaded = true;
+            }
+        });
+    }
+
+    setupScrollListener() {
+        this.containerContent.addEventListener('scroll', () => {
+            if (this.containerContent.scrollTop === 0 && !this.allMessagesLoaded) {
+                const currentMessagesCount = this.containerContent.childElementCount;
+                this.loadMessages(currentMessagesCount, 10);
             }
         });
     }
