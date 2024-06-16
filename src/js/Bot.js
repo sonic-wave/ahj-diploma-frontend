@@ -1,5 +1,6 @@
 import createRequest from './api/createRequest';
 import createFileRequest from './api/createFileRequest';
+import randomizer from './api/randomizer';
 
 export default class Bot {
     constructor() {
@@ -26,6 +27,7 @@ export default class Bot {
         this.allMessagesLoaded = false;
         this.loadMessages();
         this.setupScrollListener();
+        this.pinListener();
     }
 
     addTextListener() {
@@ -42,6 +44,7 @@ export default class Bot {
                     response.then(res => {
                         const textResponse = res.responseMessage;
                         this.addTextMessage(textResponse);
+                        this.chaos(textResponse);
                     })
                 }
                 this.messageInput.value = '';
@@ -178,6 +181,25 @@ export default class Bot {
             this.containerContent.prepend(messageBox);
         } else {
             this.containerContent.append(messageBox);
+        }
+    }
+
+    chaos(message) {
+        if (message === '@chaos: погода') {
+            const answer = randomizer();
+            const data = {
+                value: answer,
+                type: 'text',
+                method: 'createTextMessage',
+                requestMethod: 'POST'
+            }
+            const response = createRequest(data);
+            if (response) {
+                response.then(res => {
+                    const textResponse = res.responseMessage;
+                    this.addTextMessage(textResponse);
+                })
+            }
         }
     }
 
@@ -413,5 +435,93 @@ export default class Bot {
             }
         });
     }
+    
+    pinListener() {
+        this.containerContent.addEventListener('contextmenu', (event) => {
+            if (event.target.classList.contains('content-message') || event.target.parentElement.classList.contains('content-fileContainer')) {
+                event.preventDefault();
+                this.showContextMenu(event.pageX, event.pageY, event.target);
+            }
+        });
 
-}
+        document.addEventListener('click', (event) => {
+            const contextMenu = document.getElementById('contextMenu');
+            if (contextMenu && !contextMenu.contains(event.target)) {
+                contextMenu.style.display = 'none';
+            }
+        });
+    }
+
+    showContextMenu(x, y, targetElement) {
+        const contextMenu = document.getElementById('contextMenu');
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = `${x}px`;
+        contextMenu.style.top = `${y}px`;
+
+        contextMenu.addEventListener('click', (event) => {
+            if (event.target.classList.contains('context-menu__item')) {
+                if (event.target.textContent === 'Pin') {
+                    console.log('Pinned item');
+                    this.pinItem(targetElement);
+                    console.log(targetElement);
+                }
+                if (event.target.textContent === 'Close') {
+                    console.log('Closed item')
+                    contextMenu.style.display = 'none';
+
+                }
+            }
+        }, { once: true });
+    }
+
+    pinItem(item) {
+        if (this.pinnedItemContainer) {
+            this.pinnedItemContainer.remove();
+        }
+
+        const pinnedItemContainer = document.createElement('div');
+        pinnedItemContainer.className = 'pinnedItemContainer';
+        this.pinnedItemContainer = pinnedItemContainer;
+
+        const pinnedItem = document.createElement('div');
+        
+        const deletePinnedItem = document.createElement('button');
+        deletePinnedItem.innerHTML = '&#10005;';
+        deletePinnedItem.className = 'deletePinnedItemBtn';
+        this.deletePiinedItem = deletePinnedItem;
+
+        pinnedItemContainer.append(pinnedItem);
+        pinnedItemContainer.append(deletePinnedItem);
+
+        if (item.classList.contains('content-message')) {
+            pinnedItem.innerHTML = '&#128190; &nbsp;'+ item.textContent.slice(0, 40) + '...';
+            this.pinnedItem = item;
+        } else {
+            pinnedItem.innerHTML = '&#128190; &nbsp; Saved file';
+            this.pinnedItem = item;
+        }
+        this.scrollToPinnedItem();
+        this.containerContent.prepend(pinnedItemContainer);
+    }
+    
+    scrollToPinnedItem() {
+        this.pinnedItemContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('deletePinnedItemBtn')) {
+                this.pinnedItemContainer.remove();
+                return;
+            }
+
+            this.pinnedItem.scrollIntoView({ behavior: 'smooth' });
+            
+            highlightElement(this.pinnedItem);
+    
+            function highlightElement(element) {
+                element.classList.add('highlightPinnedMessage');
+                setTimeout(() => {
+                    element.classList.remove('highlightPinnedMessage');
+                }, 2000); 
+            }
+
+        })
+    }
+ }
