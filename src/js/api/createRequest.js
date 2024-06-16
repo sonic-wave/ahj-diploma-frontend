@@ -1,4 +1,4 @@
-const localhost = 'http://localhost:7070/';
+const localhost = 'https://ahj-diploma-backend-l54f.onrender.com';
 
 // const createRequest = async (data) => {
 //     const postOptions = {

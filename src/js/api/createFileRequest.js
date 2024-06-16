@@ -3,7 +3,7 @@ const createFileRequest = async (data) => {
         method: 'POST',
         body: data,
     }
-    const response = await fetch('http://localhost:7070/?method=createFileMessage', postOptions);
+    const response = await fetch('https://ahj-diploma-backend-l54f.onrender.com/?method=createFileMessage', postOptions);
 
     if (response.ok) {
         const result = await response.json();
