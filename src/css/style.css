@@ -51,25 +51,17 @@ h1 {
 
 @keyframes flash {
   0% {
-    background-color: #FF0000; /* Зеленый */
+    background-color: #FF0000; 
   }
   50% {
-    background-color: #fff; /* Красный */
+    background-color: #fff; 
   }
   100% {
-    background-color: #FF0000; /* Зеленый */
+    background-color: #FF0000; 
   }
 }
 
 .header-recordContainer {
-  /* position: absolute; */
-  /* background-color: #fff; */
-  /* width: 200px;
-  height: 60px; */
-  /* display: flex;
-  flex-direction: column;
-  justify-content: space-between; */
-  /* padding: 20px; */
   margin-right: 10px;
 }
 
@@ -104,8 +96,6 @@ h1 {
 }
 
 .content-fileContainer {
-  /* background-color: #fff; */
-  /* border: 1px solid lightgray; */
   border-radius: 3px;
   margin: 10px;
   width: 400px;
@@ -218,5 +208,4 @@ button:hover {
 
 .highlightPinnedMessage {
   border: 1px solid crimson;
-  /* background-color: cornflowerblue; */
 }
